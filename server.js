@@ -26,9 +26,9 @@ import {
   userFromToken
 } from "./lib/auth-db.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.join(__dirname, "public");
-const dataDir = path.join(__dirname, "data");
+const appDir = path.dirname(fileURLToPath(import.meta.url));
+const publicDir = path.join(appDir, "public");
+const dataDir = path.join(appDir, "data");
 const dataFile = path.join(dataDir, "state.json");
 const port = Number(process.env.PORT || 5186);
 const appTimeZone = "Europe/Bucharest";
