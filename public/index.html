@@ -190,6 +190,22 @@
       </main>
     </div>
 
+    <dialog class="auth-modal" id="authModal">
+      <form class="auth-card" id="authForm">
+        <div>
+          <p class="eyebrow" id="authEyebrow">Welcome to Woven</p>
+          <h2 id="authTitle">Create your account</h2>
+          <p id="authCopy">Save your rhythm, tasks, check-ins, and planning profile with Neon.</p>
+        </div>
+        <input name="name" placeholder="Your name" value="Ana" />
+        <input name="email" type="email" placeholder="Email" required />
+        <input name="password" type="password" placeholder="Password" minlength="8" required />
+        <button type="submit" id="authSubmit">Sign up</button>
+        <button class="ghost-quiet" type="button" id="toggleAuthMode">I already have an account</button>
+        <p class="auth-error" id="authError"></p>
+      </form>
+    </dialog>
+
     <dialog class="task-modal" id="taskModal">
       <form id="taskForm" class="task-form">
         <input name="taskId" type="hidden" />

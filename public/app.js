@@ -3,6 +3,8 @@ const state = {
   schedule: null,
   source: null,
   notificationTimers: new Map(),
+  authMode: "signup",
+  user: null,
   meetingStatus: {},
   activeView: "today",
   calendarView: "week",
@@ -172,6 +174,34 @@ function scheduleLocalNotifications(plan) {
     const timer = setTimeout(() => showWovenNotification(notification), delayMinutes * 60 * 1000);
     state.notificationTimers.set(notification.id, timer);
   }
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode;
+  const signup = mode === "signup";
+  $("#authEyebrow").textContent = signup ? "Welcome to Woven" : "Welcome back";
+  $("#authTitle").textContent = signup ? "Create your account" : "Log in";
+  $("#authCopy").textContent = signup ? "Save your rhythm, tasks, check-ins, and planning profile with Neon." : "Return to your woven schedule.";
+  $("#authSubmit").textContent = signup ? "Sign up" : "Log in";
+  $("#toggleAuthMode").textContent = signup ? "I already have an account" : "Create a new account";
+  $("#authForm [name='name']").classList.toggle("is-hidden", !signup);
+  $("#authError").textContent = "";
+}
+
+function showAuthModal(mode = "signup") {
+  setAuthMode(mode);
+  $("#authModal").showModal();
+}
+
+async function continueAfterAuth(user) {
+  state.user = user;
+  $("#authModal").close();
+  const initial = await api("/api/state");
+  state.profileId = initial.currentProfileId;
+  state.source = initial;
+  renderProfiles(initial.profiles, state.profileId);
+  await refresh();
+  if (!state.source.preferences?.[state.profileId]?.completedAt) openIntroQuiz();
 }
 
 function formatDuration(minutes) {
@@ -1203,6 +1233,12 @@ async function refresh() {
 }
 
 async function boot() {
+  const auth = await api("/api/auth/me");
+  if (!auth.user) {
+    showAuthModal("signup");
+    return;
+  }
+  state.user = auth.user;
   const initial = await api("/api/state");
   state.profileId = initial.currentProfileId;
   state.source = initial;
@@ -1260,6 +1296,26 @@ $("#openTaskModal").addEventListener("click", () => {
 $("#closeTaskModal").addEventListener("click", () => {
   $("#taskModal").close();
   resetTaskForm();
+});
+
+$("#toggleAuthMode").addEventListener("click", () => {
+  setAuthMode(state.authMode === "signup" ? "login" : "signup");
+});
+
+$("#authForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
+  $("#authError").textContent = "";
+  try {
+    const result = await api(state.authMode === "signup" ? "/api/auth/signup" : "/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data)
+    });
+    await continueAfterAuth(result.user);
+  } catch (error) {
+    $("#authError").textContent = error.message.replace(/[{}"]/g, "");
+  }
 });
 
 $("#closeCheckinModal").addEventListener("click", () => {
@@ -1335,15 +1391,20 @@ $("#settingsForm").addEventListener("submit", async (event) => {
 });
 
 $("#resetPasswordButton").addEventListener("click", () => {
-  alert("Password reset is ready for the real authentication provider. This local prototype does not have accounts yet.");
+  api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({}) }).then((result) => alert(result.message));
 });
 
-$("#logoutButton").addEventListener("click", () => {
-  alert("Logout is ready for the real authentication provider. This local prototype keeps you in the current profile.");
+$("#logoutButton").addEventListener("click", async () => {
+  await api("/api/auth/logout", { method: "POST", body: JSON.stringify({}) });
+  $("#settingsModal").close();
+  showAuthModal("login");
 });
 
-$("#deleteProfileButton").addEventListener("click", () => {
-  alert("Profile deletion needs real account storage before it can safely remove a user. For now, your local prototype data is preserved.");
+$("#deleteProfileButton").addEventListener("click", async () => {
+  if (!confirm("Delete this Woven profile and all saved data?")) return;
+  await api("/api/auth/account", { method: "DELETE" });
+  $("#settingsModal").close();
+  showAuthModal("signup");
 });
 
 $("#notificationsButton").addEventListener("click", async () => {

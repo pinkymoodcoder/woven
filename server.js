@@ -15,6 +15,16 @@ import {
   validatePlanningProfile
 } from "./lib/planning-service.js";
 import { dailyGoals } from "./lib/planning-config.js";
+import {
+  createAccount,
+  deleteAccount,
+  hasDatabase,
+  loadAccountState,
+  loginAccount,
+  logoutToken,
+  saveAccountState,
+  userFromToken
+} from "./lib/auth-db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "public");
@@ -22,6 +32,7 @@ const dataDir = path.join(__dirname, "data");
 const dataFile = path.join(dataDir, "state.json");
 const port = Number(process.env.PORT || 5186);
 const appTimeZone = "Europe/Bucharest";
+const sessionCookieName = "woven_session";
 
 const fixedTaskRange = (task) => {
   if (task.scheduleMode !== "fixed" || !isValidTime(task.fixedStart) || !isValidTime(task.fixedEnd)) return null;
@@ -47,6 +58,17 @@ const localPart = (type, date = new Date()) => localParts(date).find((part) => p
 const todayIso = () => `${localPart("year")}-${localPart("month")}-${localPart("day")}`;
 
 const nowMinutes = () => Number(localPart("hour")) * 60 + Number(localPart("minute"));
+
+const cookieValue = (request, name) =>
+  (request.headers.cookie || "")
+    .split(";")
+    .map((item) => item.trim().split("="))
+    .find(([key]) => key === name)?.[1];
+
+const authCookie = (token, expiresAt) =>
+  `${sessionCookieName}=${token}; Path=/; HttpOnly; SameSite=Lax; Expires=${new Date(expiresAt).toUTCString()}`;
+
+const clearAuthCookie = () => `${sessionCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 
 const db = {
   profiles: [
@@ -264,6 +286,66 @@ const loadPersistedDb = async () => {
   if (saved.learnedAdjustments && typeof saved.learnedAdjustments === "object") db.learnedAdjustments = saved.learnedAdjustments;
 };
 
+const exportUserState = (profileId = db.currentProfileId) => ({
+  profile: db.profiles.find((item) => item.id === profileId) || db.profiles[0],
+  preferences: db.preferences[profileId] || {},
+  planningProfile: db.planningProfiles[profileId] || {},
+  tasks: db.tasks,
+  meetings: db.meetings,
+  checkins: db.checkins.filter((item) => item.profileId === profileId),
+  dailyIntentions: db.dailyIntentions.filter((item) => item.profileId === profileId),
+  reflections: db.reflections.filter((item) => item.profileId === profileId),
+  notificationPreferences: db.notificationPreferences[profileId] || {},
+  notificationPlans: db.notificationPlans.filter((item) => item.userId === profileId),
+  learnedAdjustments: db.learnedAdjustments[profileId] || {}
+});
+
+const applyAccountState = (user, row) => {
+  const profile = {
+    ...(row?.profile || {}),
+    id: user.id,
+    name: row?.profile?.name || user.name || "Ana",
+    role: row?.profile?.role || "Woven user",
+    workHours: row?.profile?.workHours || { start: "09:00", end: "18:00" },
+    energyPattern: row?.profile?.energyPattern || db.profiles[0].energyPattern
+  };
+  db.currentProfileId = user.id;
+  db.profiles = [profile];
+  db.preferences = { [user.id]: row?.preferences || {} };
+  db.planningProfiles = { [user.id]: row?.planning_profile || row?.planningProfile || {} };
+  db.tasks = row?.tasks || [];
+  db.meetings = row?.meetings || [];
+  db.checkins = (row?.checkins || []).map((item) => ({ ...item, profileId: user.id, userId: user.id }));
+  db.dailyIntentions = (row?.daily_intentions || row?.dailyIntentions || []).map((item) => ({ ...item, profileId: user.id, userId: user.id }));
+  db.reflections = (row?.reflections || []).map((item) => ({ ...item, profileId: user.id, userId: user.id }));
+  db.notificationPreferences = { [user.id]: row?.notification_preferences || row?.notificationPreferences || {} };
+  db.notificationPlans = (row?.notification_plans || row?.notificationPlans || []).map((item) => ({ ...item, userId: user.id }));
+  db.learnedAdjustments = { [user.id]: row?.learned_adjustments || row?.learnedAdjustments || {} };
+};
+
+const persistUserState = async (profileId = db.currentProfileId) => {
+  if (hasDatabase()) await saveAccountState(profileId, exportUserState(profileId));
+  await persistDb();
+};
+
+const authContext = async (request) => {
+  const token = cookieValue(request, sessionCookieName);
+  const user = await userFromToken(token);
+  if (!user) return { user: null, token };
+  const accountState = await loadAccountState(user.id);
+  applyAccountState(user, accountState);
+  return { user, token };
+};
+
+const requireUser = async (request, response) => {
+  const context = await authContext(request);
+  if (!context.user) {
+    json(response, 401, { error: "Please log in to continue." });
+    return null;
+  }
+  return context;
+};
+
 const periodFor = (time) => {
   const value = typeof time === "number" ? time : minutes(time);
   if (value < 12 * 60) return "morning";
@@ -479,8 +561,8 @@ function buildAnalytics(profileId = db.currentProfileId) {
   };
 }
 
-const json = (response, status, body) => {
-  response.writeHead(status, { "content-type": "application/json" });
+const json = (response, status, body, headers = {}) => {
+  response.writeHead(status, { "content-type": "application/json", ...headers });
   response.end(JSON.stringify(body));
 };
 
@@ -491,7 +573,56 @@ const parseBody = async (request) => {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 };
 
-const api = async (request, response, url) => {
+export const api = async (request, response, url) => {
+  if (request.method === "GET" && url.pathname === "/api/auth/me") {
+    const context = await authContext(request);
+    return json(response, 200, { user: context.user, databaseConnected: hasDatabase() });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/signup") {
+    const body = await parseBody(request);
+    const name = body.name || "Ana";
+    const appState = exportUserState();
+    appState.profile = { ...appState.profile, name, id: undefined };
+    const { user, session } = await createAccount({ email: body.email, name, password: body.password, appState });
+    const row = await loadAccountState(user.id);
+    applyAccountState(user, row);
+    return json(response, 201, { user }, { "set-cookie": authCookie(session.token, session.expiresAt) });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/login") {
+    const body = await parseBody(request);
+    const { user, session } = await loginAccount({ email: body.email, password: body.password });
+    const row = await loadAccountState(user.id);
+    applyAccountState(user, row);
+    return json(response, 200, { user }, { "set-cookie": authCookie(session.token, session.expiresAt) });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+    const token = cookieValue(request, sessionCookieName);
+    await logoutToken(token);
+    return json(response, 200, { loggedOut: true }, { "set-cookie": clearAuthCookie() });
+  }
+
+  if (request.method === "DELETE" && url.pathname === "/api/auth/account") {
+    const context = await requireUser(request, response);
+    if (!context) return;
+    await deleteAccount(context.user.id);
+    return json(response, 200, { deleted: true }, { "set-cookie": clearAuthCookie() });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/reset-password") {
+    const context = await requireUser(request, response);
+    if (!context) return;
+    return json(response, 200, { message: "Password reset email delivery is ready for a transactional email provider." });
+  }
+
+  const publicAuthPaths = ["/api/auth/me", "/api/auth/signup", "/api/auth/login"];
+  if (!publicAuthPaths.includes(url.pathname)) {
+    const context = await requireUser(request, response);
+    if (!context) return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/state") {
     return json(response, 200, {
       profiles: db.profiles,
@@ -523,7 +654,7 @@ const api = async (request, response, url) => {
       const profile = db.profiles.find((item) => item.id === profileId);
       if (profile) profile.name = body.preferences.callName;
     }
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 200, { profileId, preferences: db.preferences[profileId], planningProfile: db.planningProfiles[profileId] });
   }
 
@@ -545,7 +676,7 @@ const api = async (request, response, url) => {
     const validation = validatePlanningProfile(planningProfile);
     if (!validation.valid) return json(response, 422, { error: "Invalid planning profile", validation });
     db.planningProfiles[profileId] = planningProfile;
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 200, { profileId, planningProfile, validation });
   }
 
@@ -558,12 +689,12 @@ const api = async (request, response, url) => {
     if (existing) {
       existing.goal = goal;
       existing.updatedAt = new Date().toISOString();
-      await persistDb();
+      await persistUserState(profileId);
       return json(response, 200, existing);
     }
     const intention = { id: `intention-${Date.now()}`, profileId, userId: profileId, date, goal, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     db.dailyIntentions.push(intention);
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 201, intention);
   }
 
@@ -609,13 +740,13 @@ const api = async (request, response, url) => {
       description: body.description || ""
     };
     db.tasks.push(task);
-    await persistDb();
+    await persistUserState(db.currentProfileId);
     return json(response, 201, task);
   }
 
   if (request.method === "DELETE" && url.pathname === "/api/tasks") {
     db.tasks = [];
-    await persistDb();
+    await persistUserState(db.currentProfileId);
     return json(response, 200, { deleted: true, tasks: db.tasks });
   }
 
@@ -624,7 +755,7 @@ const api = async (request, response, url) => {
     const initialLength = db.tasks.length;
     db.tasks = db.tasks.filter((item) => item.id !== id);
     if (db.tasks.length === initialLength) return json(response, 404, { error: "Task not found" });
-    await persistDb();
+    await persistUserState(db.currentProfileId);
     return json(response, 200, { deleted: true, id });
   }
 
@@ -645,7 +776,7 @@ const api = async (request, response, url) => {
     task.estimatedDurationMinutes = Number(task.estimatedDurationMinutes || task.duration || 45);
     if (body.status === "done" && !task.completedAt) task.completedAt = new Date().toISOString();
     if (body.status && body.status !== "done") delete task.completedAt;
-    await persistDb();
+    await persistUserState(db.currentProfileId);
     return json(response, 200, task);
   }
 
@@ -665,7 +796,7 @@ const api = async (request, response, url) => {
       note: body.note || ""
     };
     db.checkins.push(checkin);
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 201, checkin);
   }
 
@@ -688,7 +819,7 @@ const api = async (request, response, url) => {
       db.reflections.filter((item) => item.profileId === profileId),
       db.learnedAdjustments[profileId]
     );
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 201, { reflection, learnedAdjustments: db.learnedAdjustments[profileId] });
   }
 
@@ -696,7 +827,7 @@ const api = async (request, response, url) => {
     const body = await parseBody(request);
     const profileId = body.profileId || db.currentProfileId;
     db.learnedAdjustments[profileId] = { capacityModifier: 1, periodEnergyModifiers: {}, weekdayModifiers: {}, updatedAt: new Date().toISOString() };
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 200, db.learnedAdjustments[profileId]);
   }
 
@@ -716,7 +847,7 @@ const api = async (request, response, url) => {
       },
       updatedAt: new Date().toISOString()
     };
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 200, { profileId, notificationPreferences: db.notificationPreferences[profileId] });
   }
 
@@ -735,7 +866,7 @@ const api = async (request, response, url) => {
       existingPlan: existing
     });
     if (!existing) db.notificationPlans.push(plan);
-    await persistDb();
+    await persistUserState(profileId);
     return json(response, 200, plan);
   }
 
@@ -758,27 +889,30 @@ const contentTypes = {
   ".svg": "image/svg+xml"
 };
 
-await loadPersistedDb();
+export const ready = loadPersistedDb();
+await ready;
 
-createServer(async (request, response) => {
-  try {
-    const url = new URL(request.url, `http://${request.headers.host}`);
-    if (url.pathname.startsWith("/api/")) return await api(request, response, url);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  createServer(async (request, response) => {
+    try {
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      if (url.pathname.startsWith("/api/")) return await api(request, response, url);
 
-    const requested = url.pathname === "/" ? "/index.html" : url.pathname;
-    const filePath = path.normalize(path.join(publicDir, requested));
-    if (!filePath.startsWith(publicDir) || !existsSync(filePath)) {
-      response.writeHead(302, { location: "/" });
-      response.end();
-      return;
+      const requested = url.pathname === "/" ? "/index.html" : url.pathname;
+      const filePath = path.normalize(path.join(publicDir, requested));
+      if (!filePath.startsWith(publicDir) || !existsSync(filePath)) {
+        response.writeHead(302, { location: "/" });
+        response.end();
+        return;
+      }
+
+      const ext = path.extname(filePath);
+      response.writeHead(200, { "content-type": contentTypes[ext] || "application/octet-stream" });
+      response.end(await readFile(filePath));
+    } catch (error) {
+      json(response, 500, { error: error.message });
     }
-
-    const ext = path.extname(filePath);
-    response.writeHead(200, { "content-type": contentTypes[ext] || "application/octet-stream" });
-    response.end(await readFile(filePath));
-  } catch (error) {
-    json(response, 500, { error: error.message });
-  }
-}).listen(port, () => {
-  console.log(`Woven is running at http://localhost:${port}`);
-});
+  }).listen(port, () => {
+    console.log(`Woven is running at http://localhost:${port}`);
+  });
+}

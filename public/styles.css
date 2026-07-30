@@ -1545,6 +1545,57 @@ h2 {
   backdrop-filter: blur(8px);
 }
 
+.auth-modal {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 28px));
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 198, 156, 0.42), transparent 12rem),
+    radial-gradient(circle at 88% 18%, rgba(187, 223, 255, 0.48), transparent 12rem),
+    rgba(255, 255, 255, 0.68);
+  box-shadow: 0 24px 80px rgba(89, 74, 118, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(28px) saturate(1.15);
+}
+
+.auth-modal::backdrop {
+  background: rgba(21, 21, 29, 0.28);
+  backdrop-filter: blur(12px);
+}
+
+.auth-card {
+  display: grid;
+  gap: 14px;
+  padding: 28px;
+}
+
+.auth-card h2 {
+  margin-top: 4px;
+  color: var(--orange);
+}
+
+.auth-card p {
+  color: var(--muted);
+}
+
+.auth-card button[type="submit"] {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background: var(--black);
+  font-weight: 850;
+}
+
+.auth-error {
+  min-height: 1.3em;
+  color: var(--pink);
+  font-weight: 800;
+}
+
 .task-form {
   display: grid;
   gap: 16px;
