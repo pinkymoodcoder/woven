@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Woven</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div>
+            <strong>Woven</strong>
+          </div>
+        </div>
+        <nav>
+          <a class="active" href="#today">Today</a>
+          <a href="#week">Week</a>
+          <a href="#calendar">Calendar</a>
+          <a href="#energy-map">Energy map</a>
+        </nav>
+      </aside>
+
+      <main>
+        <section class="topbar">
+          <div>
+            <p class="eyebrow" id="pageEyebrow">Today</p>
+            <h1 id="pageTitle">Your rhythm</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="topbar-button notification-button" id="notificationsButton" title="Notifications" type="button" aria-label="Notifications">&#128276;</button>
+            <button class="profile-button" id="profileButton" title="Profile" type="button" aria-label="Profile">
+              <span id="profileName">Ana</span>
+            </button>
+            <button class="topbar-button settings-button" id="settingsButton" title="Settings" type="button" aria-label="Settings">&#9881;&#65039;</button>
+          </div>
+        </section>
+
+        <section class="hero-panel" id="heroPanel" aria-label="Daily welcome">
+          <div class="orb-wrap" aria-hidden="true">
+            <div class="orb"></div>
+            <div class="orb-ring"></div>
+          </div>
+          <div class="hero-copy">
+            <p class="eyebrow">Make space for all of you</p>
+            <h2 id="heroSummary">A calm plan for your energy, tasks, and time.</h2>
+            <p id="heroInsight">Woven reads your day softly: meetings first, focus where it fits, and room left for body, mind, and people.</p>
+          </div>
+        </section>
+
+        <section class="today-grid app-view" id="today" data-view="today">
+          <div class="panel schedule-panel">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Daily schedule</p>
+                <h2 id="daySummary">Loading today...</h2>
+              </div>
+              <div class="title-actions">
+                <button class="soft-button" id="openTaskModal" type="button">Weave a task</button>
+                <button class="icon-button" id="refreshPlan" title="Rebuild schedule" type="button">&circlearrowright;</button>
+              </div>
+            </div>
+            <div class="planning-strip" id="planningStrip"></div>
+            <div class="planning-warnings" id="planningWarnings"></div>
+            <div class="timeline" id="timeline"></div>
+          </div>
+
+          <aside class="panel analysis-panel">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Productivity</p>
+                <h2>Today's read</h2>
+              </div>
+            </div>
+            <div class="analysis-metrics">
+              <article class="metric-card orange">
+                <span id="taskCount">--</span>
+                <p>tasks today</p>
+              </article>
+              <article class="metric-card pink">
+                <span id="doneCount">--</span>
+                <p>done</p>
+              </article>
+              <article class="metric-card blue">
+                <div class="battery-widget" aria-label="Energy battery">
+                  <div class="battery-shell"><span id="batteryFill"></span></div>
+                  <span id="energyRemaining">--</span>
+                </div>
+                <p>energy left</p>
+              </article>
+              <article class="metric-card green">
+                <span id="averageMood">--</span>
+                <p>average mood</p>
+              </article>
+            </div>
+            <div class="thread-chart" id="threadChart"></div>
+          </aside>
+        </section>
+
+        <section class="app-view is-hidden" id="calendar" data-view="calendar">
+          <div class="panel page-panel">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Calendar</p>
+                <h2 id="calendarSummary">One week at a time</h2>
+              </div>
+              <div class="title-actions">
+                <div class="segmented-control" id="calendarViewTabs" aria-label="Calendar view">
+                  <button class="active" type="button" data-calendar-view="week">Week</button>
+                  <button type="button" data-calendar-view="day">Day</button>
+                  <button type="button" data-calendar-view="month">Month</button>
+                </div>
+                <button class="soft-button" data-open-task type="button">Weave a task</button>
+              </div>
+            </div>
+            <div class="filter-row" id="calendarFilters"></div>
+            <div class="calendar-board" id="calendarBoard"></div>
+          </div>
+        </section>
+
+        <section class="app-view is-hidden" id="week" data-view="week">
+          <div class="week-layout">
+            <div class="panel page-panel">
+              <div class="section-title">
+                <div>
+                  <p class="eyebrow">Week</p>
+                  <h2>This week’s weave</h2>
+                </div>
+              </div>
+              <div class="report-grid" id="weekMetrics"></div>
+              <div class="insight-card" id="weekInsight"></div>
+            </div>
+            <div class="panel page-panel">
+              <div class="section-title">
+                <div>
+                  <p class="eyebrow">Threads and stitches</p>
+                  <h2>Balance read</h2>
+                </div>
+              </div>
+              <div class="split-report">
+                <div id="weekThreadChart"></div>
+                <div id="weekStitchChart"></div>
+              </div>
+            </div>
+            <div class="panel page-panel">
+              <div class="section-title">
+                <div>
+                  <p class="eyebrow">Mood</p>
+                  <h2>Emotional trace</h2>
+                </div>
+              </div>
+              <div class="mood-report" id="weekMoodReport"></div>
+            </div>
+            <div class="panel page-panel">
+              <div class="section-title">
+                <div>
+                  <p class="eyebrow">Energy</p>
+                  <h2>Daily drain</h2>
+                </div>
+              </div>
+              <div class="energy-bars" id="weekEnergyChart"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="app-view is-hidden" id="energy-map" data-view="energy-map">
+          <div class="panel page-panel">
+            <div class="section-title">
+              <div>
+                <p class="eyebrow">Energy map</p>
+                <h2>How your energy moves</h2>
+              </div>
+              <div class="segmented-control" id="energyViewTabs" aria-label="Energy map view">
+                <button class="active" type="button" data-energy-view="day">Day</button>
+                <button type="button" data-energy-view="week">Week</button>
+                <button type="button" data-energy-view="month">Month</button>
+              </div>
+            </div>
+            <div class="energy-map-grid">
+              <div class="energy-map-card" id="energyUseMap"></div>
+              <div class="energy-map-card" id="energyThreadMap"></div>
+              <div class="energy-map-card" id="energyStitchMap"></div>
+              <div class="energy-map-card" id="energyRhythmMap"></div>
+              <div class="energy-map-card recommendations" id="energyRecommendations"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="task-modal" id="taskModal">
+      <form id="taskForm" class="task-form">
+        <input name="taskId" type="hidden" />
+        <div class="modal-title">
+          <div>
+            <p class="eyebrow">Task capture</p>
+            <h2 id="taskModalTitle">Weave a task</h2>
+          </div>
+          <button class="icon-button light" id="closeTaskModal" type="button">&times;</button>
+        </div>
+
+        <input name="title" placeholder="Task title" required />
+        <textarea name="description" rows="3" placeholder="Short description"></textarea>
+
+        <div class="form-row">
+          <fieldset class="category-group">
+            <legend>Category</legend>
+            <label class="work"><input type="radio" name="category" value="work" checked /> Work</label>
+            <label class="social"><input type="radio" name="category" value="social" /> Social</label>
+            <label class="mind"><input type="radio" name="category" value="mind" /> Mind</label>
+            <label class="body"><input type="radio" name="category" value="body" /> Body</label>
+          </fieldset>
+          <label>
+            Project / subcategory
+            <input name="project" placeholder="Project or subcategory" value="Woven" />
+          </label>
+        </div>
+
+        <fieldset class="stitch-group">
+          <legend>Stitch</legend>
+          <label><input type="radio" name="stitch" value="growth" /> Growth</label>
+          <label><input type="radio" name="stitch" value="maintenance" checked /> Maintenance</label>
+          <label><input type="radio" name="stitch" value="joy" /> Joy</label>
+          <label><input type="radio" name="stitch" value="contribution" /> Contribution</label>
+        </fieldset>
+
+        <fieldset class="priority-group">
+          <legend>Priority</legend>
+          <label><input type="radio" name="priority" value="low" /> Low</label>
+          <label><input type="radio" name="priority" value="medium" checked /> Medium</label>
+          <label><input type="radio" name="priority" value="high" /> High</label>
+          <label><input type="radio" name="priority" value="critical" /> Critical</label>
+        </fieldset>
+
+        <div class="slider-stack">
+          <label>
+            <span>Difficulty <strong data-output="difficulty">Moderate</strong></span>
+            <input class="gradient-slider" name="difficulty" type="range" min="1" max="5" value="3" />
+          </label>
+          <label>
+            <span>Energy <strong data-output="energy">Steady</strong></span>
+            <input class="gradient-slider" name="energy" type="range" min="1" max="5" value="3" />
+          </label>
+        </div>
+
+        <fieldset class="mood-group">
+          <legend>Mood</legend>
+          <label><input type="radio" name="mood" value="drained" /> &#128557;</label>
+          <label><input type="radio" name="mood" value="heavy" /> &#128532;</label>
+          <label><input type="radio" name="mood" value="neutral" checked /> &#128528;</label>
+          <label><input type="radio" name="mood" value="calm" /> &#128524;</label>
+          <label><input type="radio" name="mood" value="good" /> &#128578;</label>
+          <label><input type="radio" name="mood" value="bright" /> &#10024;</label>
+          <label><input type="radio" name="mood" value="excited" /> &#129321;</label>
+        </fieldset>
+
+        <fieldset class="schedule-mode">
+          <legend>Schedule</legend>
+          <label><input type="radio" name="scheduleMode" value="flexible" checked /> Let Woven place it</label>
+          <label><input type="radio" name="scheduleMode" value="fixed" /> Fixed time</label>
+        </fieldset>
+
+        <div class="duration-grid" data-schedule-panel="flexible">
+          <label class="duration">
+            <span>Minutes <strong data-output="minutes">45 min</strong></span>
+            <input name="durationMinutes" type="range" min="0" max="4" value="4" />
+          </label>
+          <label class="duration">
+            <span>Hours <strong data-output="hours">0 hours</strong></span>
+            <input name="durationHours" type="range" min="0" max="8" value="0" />
+          </label>
+          <p class="duration-total">Total <strong data-output="duration">45 min</strong></p>
+        </div>
+
+        <div class="fixed-time-grid is-hidden" data-schedule-panel="fixed">
+          <label>
+            Starts
+            <input name="fixedStart" type="time" value="14:00" />
+          </label>
+          <label>
+            Ends
+            <input name="fixedEnd" type="time" value="15:00" />
+          </label>
+        </div>
+
+        <button id="submitTask" type="submit">Weave into schedule</button>
+      </form>
+    </dialog>
+
+    <dialog class="task-modal detail-modal" id="taskDetailModal">
+      <div class="task-detail" id="taskDetail"></div>
+    </dialog>
+
+    <dialog class="task-modal planning-modal" id="checkinModal">
+      <form class="task-form compact-planning-form" id="checkinForm">
+        <input name="type" type="hidden" value="morning" />
+        <div class="modal-title">
+          <div>
+            <p class="eyebrow" id="checkinEyebrow">Morning check-in</p>
+            <h2>How are you feeling?</h2>
+          </div>
+          <button class="icon-button light" id="closeCheckinModal" type="button">&times;</button>
+        </div>
+        <label>
+          Energy
+          <input class="gradient-slider" name="energy" type="range" min="1" max="5" value="3" />
+          <strong data-checkin-output="energy">Steady</strong>
+        </label>
+        <label>
+          Mood
+          <input class="gradient-slider" name="mood" type="range" min="1" max="5" value="3" />
+          <strong data-checkin-output="mood">&#128528; Neutral</strong>
+        </label>
+        <textarea name="note" rows="2" placeholder="Optional note"></textarea>
+        <button type="submit">Save check-in</button>
+      </form>
+    </dialog>
+
+    <dialog class="task-modal planning-modal" id="reflectionModal">
+      <form class="task-form compact-planning-form" id="reflectionForm">
+        <div class="modal-title">
+          <div>
+            <p class="eyebrow">Evening reflection</p>
+            <h2>How did your day go?</h2>
+          </div>
+          <button class="icon-button light" id="closeReflectionModal" type="button">&times;</button>
+        </div>
+        <label>
+          Satisfaction
+          <input class="gradient-slider" name="satisfaction" type="range" min="1" max="5" value="3" />
+          <strong data-reflection-output="satisfaction">Okay</strong>
+        </label>
+        <label>
+          Did you do what you intended?
+          <select name="didWhatTheyIntended">
+            <option value="yes">Yes</option>
+            <option value="partly" selected>Partly</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label>
+          Energy left
+          <input class="gradient-slider" name="energyAtEnd" type="range" min="1" max="5" value="3" />
+          <strong data-reflection-output="energyAtEnd">Steady</strong>
+        </label>
+        <textarea name="note" rows="2" placeholder="Optional note"></textarea>
+        <button type="submit">Save reflection</button>
+      </form>
+    </dialog>
+
+    <dialog class="task-modal planning-modal" id="settingsModal">
+      <form class="task-form compact-planning-form settings-form" id="settingsForm">
+        <div class="modal-title">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2>Account and notifications</h2>
+          </div>
+          <button class="icon-button light" id="closeSettingsModal" type="button">&times;</button>
+        </div>
+        <section class="settings-section">
+          <h3>Notifications</h3>
+          <label><input type="checkbox" name="notificationsEnabled" /> Enable planning notifications</label>
+          <label><input type="checkbox" name="morning" checked /> Morning check-in</label>
+          <label><input type="checkbox" name="daytime" checked /> Daytime check-in</label>
+          <label><input type="checkbox" name="evening" checked /> Evening reflection</label>
+          <label><input type="checkbox" name="fixedTask" checked /> Upcoming fixed tasks</label>
+        </section>
+        <section class="settings-section">
+          <h3>Profile</h3>
+          <button type="button" class="ghost-quiet" id="resetPasswordButton">Reset password</button>
+          <button type="button" class="ghost-quiet" id="logoutButton">Log out</button>
+          <button type="button" class="danger-button" id="deleteProfileButton">Delete profile</button>
+        </section>
+        <button type="submit">Save settings</button>
+      </form>
+    </dialog>
+
+    <dialog class="quiz-modal" id="introQuiz">
+      <form class="quiz-shell" id="introQuizForm">
+        <div class="quiz-progress">
+          <span id="quizStepLabel">Step 1 of 10</span>
+          <div><i id="quizProgressFill"></i></div>
+        </div>
+
+        <section class="quiz-step active" data-quiz-step="0">
+          <p class="eyebrow">Teach Woven how you weave your life</p>
+          <h2>Let's start with your work rhythm.</h2>
+          <p>We'll protect your work time and avoid scheduling work outside it unless you choose to.</p>
+          <fieldset class="quiz-days">
+            <legend>Which days do you usually work?</legend>
+            <label><input type="checkbox" name="workDays" value="monday" checked /> Monday</label>
+            <label><input type="checkbox" name="workDays" value="tuesday" checked /> Tuesday</label>
+            <label><input type="checkbox" name="workDays" value="wednesday" checked /> Wednesday</label>
+            <label><input type="checkbox" name="workDays" value="thursday" checked /> Thursday</label>
+            <label><input type="checkbox" name="workDays" value="friday" checked /> Friday</label>
+            <label><input type="checkbox" name="workDays" value="saturday" /> Saturday</label>
+            <label><input type="checkbox" name="workDays" value="sunday" /> Sunday</label>
+          </fieldset>
+          <div class="multi-range-card">
+            <h3>Add one range to multiple days</h3>
+            <div class="multi-day-picks">
+              <label><input type="checkbox" name="bulkRangeDays" value="monday" checked /> Mon</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="tuesday" checked /> Tue</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="wednesday" checked /> Wed</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="thursday" checked /> Thu</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="friday" checked /> Fri</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="saturday" /> Sat</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="sunday" /> Sun</label>
+            </div>
+            <div class="multi-range-row">
+              <input type="time" id="bulkRangeStart" value="09:00" />
+              <span>-</span>
+              <input type="time" id="bulkRangeEnd" value="17:30" />
+              <button type="button" id="applyRangeToDays">Add to selected days</button>
+            </div>
+          </div>
+          <div class="work-ranges" id="workRanges"></div>
+        </section>
+
+        <section class="quiz-step energy-step" data-quiz-step="1">
+          <p class="eyebrow">Your energy</p>
+          <h2>When do you feel at your best?</h2>
+          <p>Everyone's energy changes throughout the day and throughout the week. Woven adapts to yours.</p>
+          <div class="curve-card">
+            <h3>Daily energy</h3>
+            <label>Morning <input type="range" name="dailyEnergy.morning" min="1" max="10" value="6" /></label>
+            <label>Afternoon <input type="range" name="dailyEnergy.afternoon" min="1" max="10" value="5" /></label>
+            <label>Evening <input type="range" name="dailyEnergy.evening" min="1" max="10" value="7" /></label>
+            <div class="energy-preview" id="dailyEnergyPreview"></div>
+          </div>
+          <div class="curve-card">
+            <h3>Weekly energy</h3>
+            <div class="weekly-energy-inputs" id="weeklyEnergyInputs"></div>
+          </div>
+        </section>
+
+        <section class="quiz-step" data-quiz-step="2">
+          <p class="eyebrow">Your threads</p>
+          <h2>Imagine your ideal week.</h2>
+          <p>Distribute 100 points among the four threads to create your week balance.</p>
+          <div class="points-total" id="threadPointsTotal">100 points left</div>
+          <div class="point-sliders" id="threadPointSliders"></div>
+        </section>
+
+        <section class="quiz-step" data-quiz-step="3">
+          <p class="eyebrow">Priorities</p>
+          <h2>When tasks compete, which thread should Woven protect first?</h2>
+          <div class="rank-list" id="threadPriorityRank"></div>
+        </section>
+
+        <section class="quiz-step" data-quiz-step="4">
+          <p class="eyebrow">Flexibility</p>
+          <h2>How structured do you like your days?</h2>
+          <div class="structure-slider">
+            <span>Flexible</span>
+            <input type="range" name="structure" min="0" max="2" value="1" />
+            <span>Highly Structured</span>
+          </div>
+          <div class="structure-read" id="structureRead"></div>
+        </section>
+
+        <section class="quiz-step" data-quiz-step="5">
+          <p class="eyebrow">Trade-offs</p>
+          <h2>How should Woven choose?</h2>
+          <p>When several tasks are available, what should Woven consider first?</p>
+          <div class="rank-list" id="choiceRank"></div>
+        </section>
+
+        <section class="quiz-step compact-step breaks-step" data-quiz-step="6">
+          <p class="eyebrow">Breaks</p>
+          <h2>How often should Woven protect breaks?</h2>
+          <fieldset class="quiz-options">
+            <label><input type="radio" name="breakCadence" value="60" /> Every hour</label>
+            <label><input type="radio" name="breakCadence" value="90" checked /> Every 90 minutes</label>
+            <label><input type="radio" name="breakCadence" value="120" /> Every 2 hours</label>
+            <label><input type="radio" name="breakCadence" value="self" /> I'll manage breaks myself</label>
+          </fieldset>
+        </section>
+
+        <section class="quiz-step compact-step buffer-step" data-quiz-step="7">
+          <p class="eyebrow">Buffers</p>
+          <h2>How full do you like your days?</h2>
+          <div class="buffer-picker">
+            <input type="range" name="bufferTarget" min="60" max="100" step="5" value="75" />
+            <strong id="bufferRead">75%</strong>
+          </div>
+        </section>
+
+        <section class="quiz-step compact-step good-day-step" data-quiz-step="8">
+          <p class="eyebrow">Good days</p>
+          <h2>What does a good day feel like?</h2>
+          <p>Choose up to three.</p>
+          <fieldset class="good-day-grid">
+            <label><input type="checkbox" name="goodDay" value="progress" /> <span>&#127919; I made meaningful progress.</span></label>
+            <label><input type="checkbox" name="goodDay" value="care" /> <span>&#127807; I took care of myself.</span></label>
+            <label><input type="checkbox" name="goodDay" value="people" /> <span>&#128155; I spent time with people I love.</span></label>
+            <label><input type="checkbox" name="goodDay" value="learning" /> <span>&#128218; I learned something new.</span></label>
+            <label><input type="checkbox" name="goodDay" value="organized" /> <span>&#128203; I kept life organized.</span></label>
+            <label><input type="checkbox" name="goodDay" value="enjoyment" /> <span>&#127881; I had time to simply enjoy myself.</span></label>
+          </fieldset>
+        </section>
+
+        <section class="quiz-step compact-step name-step" data-quiz-step="9">
+          <p class="eyebrow">Your name</p>
+          <h2>What should Woven call you?</h2>
+          <input name="callName" placeholder="Your name" value="Ana" />
+        </section>
+
+        <div class="quiz-actions">
+          <button class="ghost-quiet" id="skipQuiz" type="button">Not now</button>
+          <div>
+            <button class="ghost-quiet" id="prevQuiz" type="button">Back</button>
+            <button class="soft-button" id="nextQuiz" type="button">Next</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

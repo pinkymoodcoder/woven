@@ -1,0 +1,15 @@
+{
+  "name": "woven",
+  "version": "0.1.0",
+  "description": "Energy-aware time management and prioritization app",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "check": "node --check server.js && node --check public/app.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
