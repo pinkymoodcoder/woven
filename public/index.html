@@ -6,7 +6,23 @@
     <title>Woven</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body class="auth-pending">
+    <section class="auth-screen is-hidden" id="authScreen" aria-label="Woven account">
+      <form class="auth-card" id="authForm">
+        <div>
+          <p class="eyebrow" id="authEyebrow">Welcome to Woven</p>
+          <h2 id="authTitle">Create your account</h2>
+          <p id="authCopy">Save your rhythm, tasks, check-ins, and planning profile with Neon.</p>
+        </div>
+        <input name="name" placeholder="Your name" value="Ana" />
+        <input name="email" type="email" placeholder="Email" required />
+        <input name="password" type="password" placeholder="Password" minlength="8" required />
+        <button type="submit" id="authSubmit">Sign up</button>
+        <button class="ghost-quiet" type="button" id="toggleAuthMode">I already have an account</button>
+        <p class="auth-error" id="authError"></p>
+      </form>
+    </section>
+
     <div class="shell">
       <aside class="sidebar" aria-label="Primary navigation">
         <div class="brand">
@@ -189,22 +205,6 @@
         </section>
       </main>
     </div>
-
-    <dialog class="auth-modal" id="authModal">
-      <form class="auth-card" id="authForm">
-        <div>
-          <p class="eyebrow" id="authEyebrow">Welcome to Woven</p>
-          <h2 id="authTitle">Create your account</h2>
-          <p id="authCopy">Save your rhythm, tasks, check-ins, and planning profile with Neon.</p>
-        </div>
-        <input name="name" placeholder="Your name" value="Ana" />
-        <input name="email" type="email" placeholder="Email" required />
-        <input name="password" type="password" placeholder="Password" minlength="8" required />
-        <button type="submit" id="authSubmit">Sign up</button>
-        <button class="ghost-quiet" type="button" id="toggleAuthMode">I already have an account</button>
-        <p class="auth-error" id="authError"></p>
-      </form>
-    </dialog>
 
     <dialog class="task-modal" id="taskModal">
       <form id="taskForm" class="task-form">
@@ -406,22 +406,22 @@
           <p>We'll protect your work time and avoid scheduling work outside it unless you choose to.</p>
           <fieldset class="quiz-days">
             <legend>Which days do you usually work?</legend>
-            <label><input type="checkbox" name="workDays" value="monday" checked /> Monday</label>
-            <label><input type="checkbox" name="workDays" value="tuesday" checked /> Tuesday</label>
-            <label><input type="checkbox" name="workDays" value="wednesday" checked /> Wednesday</label>
-            <label><input type="checkbox" name="workDays" value="thursday" checked /> Thursday</label>
-            <label><input type="checkbox" name="workDays" value="friday" checked /> Friday</label>
+            <label><input type="checkbox" name="workDays" value="monday" /> Monday</label>
+            <label><input type="checkbox" name="workDays" value="tuesday" /> Tuesday</label>
+            <label><input type="checkbox" name="workDays" value="wednesday" /> Wednesday</label>
+            <label><input type="checkbox" name="workDays" value="thursday" /> Thursday</label>
+            <label><input type="checkbox" name="workDays" value="friday" /> Friday</label>
             <label><input type="checkbox" name="workDays" value="saturday" /> Saturday</label>
             <label><input type="checkbox" name="workDays" value="sunday" /> Sunday</label>
           </fieldset>
           <div class="multi-range-card">
             <h3>Add one range to multiple days</h3>
             <div class="multi-day-picks">
-              <label><input type="checkbox" name="bulkRangeDays" value="monday" checked /> Mon</label>
-              <label><input type="checkbox" name="bulkRangeDays" value="tuesday" checked /> Tue</label>
-              <label><input type="checkbox" name="bulkRangeDays" value="wednesday" checked /> Wed</label>
-              <label><input type="checkbox" name="bulkRangeDays" value="thursday" checked /> Thu</label>
-              <label><input type="checkbox" name="bulkRangeDays" value="friday" checked /> Fri</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="monday" /> Mon</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="tuesday" /> Tue</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="wednesday" /> Wed</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="thursday" /> Thu</label>
+              <label><input type="checkbox" name="bulkRangeDays" value="friday" /> Fri</label>
               <label><input type="checkbox" name="bulkRangeDays" value="saturday" /> Sat</label>
               <label><input type="checkbox" name="bulkRangeDays" value="sunday" /> Sun</label>
             </div>

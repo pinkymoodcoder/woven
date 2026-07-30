@@ -9,13 +9,16 @@ const state = {
   activeView: "today",
   calendarView: "week",
   threadFilter: "all",
-  energyView: "day"
+  energyView: "day",
+  quizRequired: false,
+  quizSetup: false
 };
 const quizState = {
   step: 0,
   threadPriority: ["work", "body", "mind", "social"],
   choicePriority: ["priority", "threadBalance", "energyMatch", "duration"]
 };
+const workRangeState = Object.fromEntries(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, []]));
 
 const $ = (selector) => document.querySelector(selector);
 const appTimeZone = "Europe/Bucharest";
@@ -188,20 +191,30 @@ function setAuthMode(mode) {
   $("#authError").textContent = "";
 }
 
-function showAuthModal(mode = "signup") {
+function showAuthScreen(mode = "signup") {
   setAuthMode(mode);
-  $("#authModal").showModal();
+  document.body.classList.add("auth-active");
+  document.body.classList.remove("auth-pending");
+  $("#authScreen").classList.remove("is-hidden");
 }
 
-async function continueAfterAuth(user) {
+function hideAuthScreen() {
+  $("#authScreen").classList.add("is-hidden");
+  document.body.classList.remove("auth-active", "auth-pending");
+}
+
+async function continueAfterAuth(user, { forceCalibration = false } = {}) {
   state.user = user;
-  $("#authModal").close();
+  hideAuthScreen();
   const initial = await api("/api/state");
   state.profileId = initial.currentProfileId;
   state.source = initial;
   renderProfiles(initial.profiles, state.profileId);
+  updateRangeLabels();
+  updateScheduleMode();
+  setupIntroQuiz();
   await refresh();
-  if (!state.source.preferences?.[state.profileId]?.completedAt) openIntroQuiz();
+  if (forceCalibration || !state.source.preferences?.[state.profileId]?.completedAt) openIntroQuiz({ required: true });
 }
 
 function formatDuration(minutes) {
@@ -930,6 +943,11 @@ function openTaskForm(task = null) {
 }
 
 function setupIntroQuiz() {
+  if (state.quizSetup) {
+    renderWorkRanges();
+    return;
+  }
+  state.quizSetup = true;
   renderWorkRanges();
   renderWeeklyEnergyInputs();
   renderThreadPointSliders();
@@ -953,17 +971,24 @@ function setupIntroQuiz() {
   });
 
   document.querySelectorAll("[name='workDays']").forEach((input) => {
-    input.addEventListener("change", () => renderWorkRanges({ useDefaultsForNewDays: false }));
+    input.addEventListener("change", () => {
+      syncWorkRangeState();
+      renderWorkRanges();
+    });
   });
 
   $("#workRanges").addEventListener("click", (event) => {
     const removeButton = event.target.closest("[data-remove-range]");
     if (!removeButton) return;
-    const row = removeButton.closest(".work-range-row");
-    if (row) row.remove();
+    syncWorkRangeState();
+    const day = removeButton.dataset.removeRange;
+    const index = Number(removeButton.dataset.rangeIndex);
+    workRangeState[day]?.splice(index, 1);
+    renderWorkRanges();
   });
 
   $("#applyRangeToDays").addEventListener("click", () => {
+    syncWorkRangeState();
     const days = [...document.querySelectorAll("[name='bulkRangeDays']:checked")].map((input) => input.value);
     const start = $("#bulkRangeStart").value;
     const end = $("#bulkRangeEnd").value;
@@ -972,12 +997,11 @@ function setupIntroQuiz() {
     days.forEach((day) => {
       const workDayInput = document.querySelector(`[name='workDays'][value='${day}']`);
       if (workDayInput) workDayInput.checked = true;
+      workRangeState[day] = [...(workRangeState[day] || []), { start, end }];
     });
 
-    renderWorkRanges({ useDefaultsForNewDays: false });
-    days.forEach((day) => {
-      document.querySelector(`[data-ranges-for='${day}']`)?.insertAdjacentHTML("beforeend", rangeRow(day, start, end));
-    });
+    renderWorkRanges();
+    document.querySelector(`[data-ranges-for='${days[0]}']`)?.closest("article")?.scrollIntoView({ block: "nearest" });
   });
 
   document.querySelectorAll("[name='goodDay']").forEach((input) => {
@@ -1001,20 +1025,26 @@ function setupIntroQuiz() {
     updateQuizStep();
   });
 
-  $("#skipQuiz").addEventListener("click", () => $("#introQuiz").close());
+  $("#introQuiz").addEventListener("cancel", (event) => {
+    if (state.quizRequired) event.preventDefault();
+  });
+
+  $("#skipQuiz").addEventListener("click", () => {
+    if (state.quizRequired) return;
+    $("#introQuiz").close();
+  });
 }
 
-function renderWorkRanges({ useDefaultsForNewDays = false } = {}) {
-  const existingRanges = collectWorkRanges();
+function renderWorkRanges() {
   const selected = [...document.querySelectorAll("[name='workDays']:checked")].map((input) => input.value);
   $("#workRanges").innerHTML = selected
     .map((day) => {
-      const ranges = existingRanges[day] || (useDefaultsForNewDays ? defaultWorkRanges() : []);
+      const ranges = workRangeState[day] || [];
       return `
         <article>
           <header><strong>${capitalize(day)}</strong><button type="button" data-add-range="${day}">Add range</button></header>
           <div data-ranges-for="${day}">
-            ${ranges.map((range) => rangeRow(day, range.start, range.end)).join("")}
+            ${ranges.map((range, index) => rangeRow(day, range.start, range.end, index)).join("")}
           </div>
         </article>
       `;
@@ -1022,7 +1052,10 @@ function renderWorkRanges({ useDefaultsForNewDays = false } = {}) {
     .join("");
   document.querySelectorAll("[data-add-range]").forEach((button) => {
     button.addEventListener("click", () => {
-      document.querySelector(`[data-ranges-for='${button.dataset.addRange}']`).insertAdjacentHTML("beforeend", rangeRow(button.dataset.addRange, "10:00", "18:00"));
+      syncWorkRangeState();
+      const day = button.dataset.addRange;
+      workRangeState[day] = [...(workRangeState[day] || []), { start: "10:00", end: "18:00" }];
+      renderWorkRanges();
     });
   });
 }
@@ -1036,15 +1069,12 @@ function collectWorkRanges() {
   }));
 }
 
-function defaultWorkRanges() {
-  return [
-    { start: "09:00", end: "12:00" },
-    { start: "13:00", end: "17:30" }
-  ];
+function syncWorkRangeState() {
+  Object.assign(workRangeState, collectWorkRanges());
 }
 
-function rangeRow(day, start, end) {
-  return `<label class="work-range-row"><input type="time" name="workStart.${day}" value="${start}" /><span>-</span><input type="time" name="workEnd.${day}" value="${end}" /><button type="button" data-remove-range="${day}" aria-label="Remove range">Remove</button></label>`;
+function rangeRow(day, start, end, index) {
+  return `<label class="work-range-row"><input type="time" name="workStart.${day}" value="${start}" /><span>-</span><input type="time" name="workEnd.${day}" value="${end}" /><button type="button" data-remove-range="${day}" data-range-index="${index}" aria-label="Remove range">Remove</button></label>`;
 }
 
 function renderWeeklyEnergyInputs() {
@@ -1153,15 +1183,10 @@ function updateBufferRead() {
 }
 
 function quizFormValues() {
+  syncWorkRangeState();
   const form = $("#introQuizForm");
   const workDays = [...form.querySelectorAll("[name='workDays']:checked")].map((input) => input.value);
-  const workSchedule = Object.fromEntries(
-    workDays.map((day) => {
-      const starts = [...form.querySelectorAll(`[name='workStart.${day}']`)].map((input) => input.value);
-      const ends = [...form.querySelectorAll(`[name='workEnd.${day}']`)].map((input) => input.value);
-      return [day, starts.map((start, index) => ({ start, end: ends[index] })).filter((range) => range.start && range.end)];
-    })
-  );
+  const workSchedule = Object.fromEntries(workDays.map((day) => [day, (workRangeState[day] || []).filter((range) => range.start && range.end)]));
   return {
     workDays,
     workSchedule,
@@ -1199,12 +1224,29 @@ async function saveIntroQuiz() {
     method: "POST",
     body: JSON.stringify({ profileId: state.profileId, preferences })
   });
+  state.quizRequired = false;
   $("#introQuiz").close();
   await refresh();
 }
 
-function openIntroQuiz() {
+function hydrateIntroQuizFromPreferences() {
+  const preferences = state.source?.preferences?.[state.profileId];
+  const workDays = preferences?.workDays || [];
+  const workSchedule = preferences?.workSchedule || {};
+  document.querySelectorAll("[name='workDays']").forEach((input) => {
+    input.checked = workDays.includes(input.value);
+  });
+  Object.keys(workRangeState).forEach((day) => {
+    workRangeState[day] = [...(workSchedule[day] || [])];
+  });
+  renderWorkRanges();
+}
+
+function openIntroQuiz({ required = false } = {}) {
+  state.quizRequired = required;
   quizState.step = 0;
+  hydrateIntroQuizFromPreferences();
+  $("#skipQuiz").classList.toggle("is-hidden", required);
   updateQuizStep();
   $("#introQuiz").showModal();
 }
@@ -1235,9 +1277,10 @@ async function refresh() {
 async function boot() {
   const auth = await api("/api/auth/me");
   if (!auth.user) {
-    showAuthModal("signup");
+    showAuthScreen("signup");
     return;
   }
+  document.body.classList.remove("auth-active", "auth-pending");
   state.user = auth.user;
   const initial = await api("/api/state");
   state.profileId = initial.currentProfileId;
@@ -1248,7 +1291,7 @@ async function boot() {
   setupIntroQuiz();
   state.activeView = pageMeta[window.location.hash.replace("#", "")] ? window.location.hash.replace("#", "") : "today";
   await refresh();
-  if (!state.source.preferences?.[state.profileId]?.completedAt) openIntroQuiz();
+  if (!state.source.preferences?.[state.profileId]?.completedAt) openIntroQuiz({ required: true });
 }
 
 $("#profileButton").addEventListener("click", async () => {
@@ -1306,13 +1349,14 @@ $("#authForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form));
+  const isSignup = state.authMode === "signup";
   $("#authError").textContent = "";
   try {
-    const result = await api(state.authMode === "signup" ? "/api/auth/signup" : "/api/auth/login", {
+    const result = await api(isSignup ? "/api/auth/signup" : "/api/auth/login", {
       method: "POST",
       body: JSON.stringify(data)
     });
-    await continueAfterAuth(result.user);
+    await continueAfterAuth(result.user, { forceCalibration: isSignup });
   } catch (error) {
     $("#authError").textContent = error.message.replace(/[{}"]/g, "");
   }
@@ -1397,14 +1441,14 @@ $("#resetPasswordButton").addEventListener("click", () => {
 $("#logoutButton").addEventListener("click", async () => {
   await api("/api/auth/logout", { method: "POST", body: JSON.stringify({}) });
   $("#settingsModal").close();
-  showAuthModal("login");
+  showAuthScreen("login");
 });
 
 $("#deleteProfileButton").addEventListener("click", async () => {
   if (!confirm("Delete this Woven profile and all saved data?")) return;
   await api("/api/auth/account", { method: "DELETE" });
   $("#settingsModal").close();
-  showAuthModal("signup");
+  showAuthScreen("signup");
 });
 
 $("#notificationsButton").addEventListener("click", async () => {
