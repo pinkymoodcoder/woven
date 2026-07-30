@@ -34,6 +34,8 @@ const responseAdapter = () => {
 };
 
 export default async (request) => {
+  const databaseUrl = globalThis.Netlify?.env?.get?.("DATABASE_URL");
+  if (databaseUrl) process.env.DATABASE_URL = databaseUrl;
   await ready;
   const adapter = responseAdapter();
   const url = new URL(request.url);
