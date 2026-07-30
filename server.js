@@ -33,6 +33,7 @@ const dataFile = path.join(dataDir, "state.json");
 const port = Number(process.env.PORT || 5186);
 const appTimeZone = "Europe/Bucharest";
 const sessionCookieName = "woven_session";
+const isNetlifyRuntime = Boolean(process.env.NETLIFY || globalThis.Netlify);
 
 const fixedTaskRange = (task) => {
   if (task.scheduleMode !== "fixed" || !isValidTime(task.fixedStart) || !isValidTime(task.fixedEnd)) return null;
@@ -242,6 +243,7 @@ const db = {
 };
 
 const persistDb = async () => {
+  if (isNetlifyRuntime) return;
   await mkdir(dataDir, { recursive: true });
   await writeFile(
     dataFile,
@@ -267,6 +269,7 @@ const persistDb = async () => {
 };
 
 const loadPersistedDb = async () => {
+  if (isNetlifyRuntime) return;
   if (!existsSync(dataFile)) {
     await persistDb();
     return;
